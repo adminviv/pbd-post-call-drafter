@@ -64,6 +64,7 @@ jobs:
           git config user.email "admin@pbdproject.org"
           git add processed_urls.log
           git diff --staged --quiet || git commit -m "Update processed_urls.log [skip ci]"
+          git pull --rebase origin main
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
