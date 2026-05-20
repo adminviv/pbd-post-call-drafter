@@ -1,0 +1,68 @@
+name: PBD Post-Call Email Drafter
+
+on:
+  schedule:
+    # 2am ET = 6am UTC (EDT, Mar–Nov) and 7am UTC (EST, Nov–Mar)
+    # Running both times ensures correct 2am ET year-round
+    - cron: '0 6 * * 1-5'   # EDT (summer)
+    - cron: '0 7 * * 1-5'   # EST (winter)
+  workflow_dispatch:         # Allow manual run from GitHub UI
+
+jobs:
+  draft-emails:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install groq python-dotenv playwright
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: Write credentials from secrets
+        run: |
+          cat > .env << EOF
+          OTTER_EMAIL=${{ secrets.OTTER_EMAIL }}
+          OTTER_PASSWORD=${{ secrets.OTTER_PASSWORD }}
+          GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+          GMAIL_USER=${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD=${{ secrets.GMAIL_APP_PASSWORD }}
+          EOF
+          echo '${{ secrets.OTTER_SESSION_JSON }}' > otter_session.json
+
+      - name: Restore processed URLs log
+        run: |
+          if [ -f processed_urls.log ]; then
+            echo "processed_urls.log found."
+          else
+            touch processed_urls.log
+          fi
+
+      - name: Run email drafter
+        run: python3 auto_drafter.py --auto
+
+      - name: Save processed URLs log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-urls-log
+          path: processed_urls.log
+
+      - name: Commit updated processed_urls.log
+        if: always()
+        run: |
+          git config user.name "PBD Drafter Bot"
+          git config user.email "admin@pbdproject.org"
+          git add processed_urls.log
+          git diff --staged --quiet || git commit -m "Update processed_urls.log [skip ci]"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,12 @@
+# Credentials — never upload these
+.env
+otter_session.json
+
+# Logs and runtime files
+cron.log
+__pycache__/
+*.pyc
+.DS_Store
+
+# Transcripts cache
+transcripts/
